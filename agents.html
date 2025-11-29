@@ -1,0 +1,418 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Users, 
+  Activity, 
+  ShieldCheck, 
+  FileText, 
+  RefreshCw, 
+  TrendingUp, 
+  MessageSquare, 
+  Briefcase,
+  Play,
+  Terminal,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  X
+} from 'lucide-react';
+
+// --- Data Structure ---
+
+const CATEGORIES = {
+  ONBOARDING: { title: "Client Onboarding & Lifecycle", color: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/10", icon: Users },
+  TRADE: { title: "Trade Lifecycle Management", color: "text-purple-400", border: "border-purple-500/30", bg: "bg-purple-500/10", icon: RefreshCw },
+  COLLATERAL: { title: "Collateral Management", color: "text-orange-400", border: "border-orange-500/30", bg: "bg-orange-500/10", icon: ShieldCheck },
+  ASSET_SERV: { title: "Asset Servicing", color: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/10", icon: FileText },
+  RECON: { title: "Reconciliations", color: "text-pink-400", border: "border-pink-500/30", bg: "bg-pink-500/10", icon: Activity },
+  SERVICE: { title: "Client Service", color: "text-cyan-400", border: "border-cyan-500/30", bg: "bg-cyan-500/10", icon: MessageSquare },
+  REGULATORY: { title: "Regulatory & Compliance", color: "text-yellow-400", border: "border-yellow-500/30", bg: "bg-yellow-500/10", icon: Briefcase },
+};
+
+const AGENTS = [
+  // Onboarding
+  { id: 1, name: "KYC/AML Analyst", cat: "ONBOARDING", role: "Screening & Validation", details: ["Ingests unstructured docs (passports, bills)", "Extracts key data (UBOs, addresses)", "Real-time AML/PEP screening", "Risk score calculation", "Initiates KYC refresh"] },
+  { id: 2, name: "Account Setup Specialist", cat: "ONBOARDING", role: "Provisioning & Entitlements", details: ["Provisions accounts in trading systems", "Sets Standard Settlement Instructions (SSI)", "Links billing structures", "Sends Welcome emails", "Manages 'Change of Control'"] },
+  
+  // Trade Lifecycle
+  { id: 3, name: "Trade Capture Assistant", cat: "TRADE", role: "Ingestion & Enrichment", details: ["Parses email/chat orders via NLP", "Validates against security master", "Enriches with broker IDs/dates", "Enters trade into OMS", "Handles block allocations"] },
+  { id: 4, name: "Confirmation Agent", cat: "TRADE", role: "Matching & Affirmation", details: ["Sends SWIFT MT300/MT515", "Matches economic terms", "Flags discrepancies", "Manages CTM/ALERT process", "Escalates un-affirmed trades"] },
+  { id: 5, name: "Settlements Manager", cat: "TRADE", role: "Fails & Prevention", details: ["Predicts settlement fails", "Diagnoses root causes", "Executes 'fail-chasing'", "Calculates CSDR penalties", "Manages pair-offs"] },
+
+  // Collateral
+  { id: 6, name: "Margin Call Analyst", cat: "COLLATERAL", role: "Exposure Calculation", details: ["Calculates VM and IM calls", "Auto-agrees calls within tolerance", "Identifies dispute sources", "Issues MT527 notices"] },
+  { id: 7, name: "Collateral Optimizer", cat: "COLLATERAL", role: "Inventory Management", details: ["Real-time inventory of assets", "Identifies 'cheapest-to-deliver'", "Executes substitutions for HQLA", "Manages transformations (repo)"] },
+  { id: 8, name: "Collateral Settlements", cat: "COLLATERAL", role: "movements & Recs", details: ["Sends MT540/542 instructions", "Monitors Euroclear/Clearstream", "Reconciles custodian positions", "Investigates settlement fails"] },
+
+  // Asset Servicing
+  { id: 9, name: "Golden Record Agent", cat: "ASSET_SERV", role: "Event Scrubbing", details: ["Monitors 20+ sources (Bloomberg, etc)", "Creates single 'golden record'", "Parses PDF announcements", "Classifies event types"] },
+  { id: 10, name: "Entitlement Agent", cat: "ASSET_SERV", role: "Notifications", details: ["Calculates client entitlements", "Manages due bills", "Auto-drafts notifications", "Distributes via portal/SWIFT"] },
+  { id: 11, name: "Instruction Agent", cat: "ASSET_SERV", role: "Election Processing", details: ["Ingests client elections via NLP", "Validates against entitlements", "Aggregates instructions to custodians", "Books resulting movements"] },
+  { id: 12, name: "Income & Dividends", cat: "ASSET_SERV", role: "Cash Processing", details: ["Predicts/accrues P&L income", "Reconciles cash receipt", "Manages Tax (W-8/W-9)", "Allocates payments"] },
+  { id: 13, name: "Proxy Voting Agent", cat: "ASSET_SERV", role: "Governance", details: ["Monitors meetings", "Distributes proxy materials", "Executes votes", "Confirms voting to clients"] },
+
+  // Reconciliations
+  { id: 14, name: "Nostro/Cash Rec", cat: "RECON", role: "Bank Recs", details: ["Real-time nostro matching (99%+)", "Categorizes breaks", "Auto-investigates via upstream queries", "Books adjusting entries"] },
+  { id: 15, name: "Position Rec", cat: "RECON", role: "Depot Recs", details: ["Internal vs Custodian recs", "Identifies position breaks", "Root-cause analysis (failed trade?)", "Notifies relevant agents"] },
+  { id: 16, name: "P&L Rec", cat: "RECON", role: "FO vs BO", details: ["Reconciles Front Office vs Back Office", "Drills down to desk/book level", "Identifies pricing/accrual diffs"] },
+  { id: 17, name: "Ledger Agent", cat: "RECON", role: "Control & GL", details: ["Reconciles OMS to Sub-Ledger", "Balance sheet substantiation", "Resolves intercompany breaks", "Suspense account clearance"] },
+
+  // Client Service
+  { id: 18, name: "Inquiry Triage", cat: "SERVICE", role: "Intent Analysis", details: ["Monitors email/chat", "NLP intent detection", "Routes to correct agent/human", "Prioritizes urgency"] },
+  { id: 19, name: "Resolution Agent", cat: "SERVICE", role: "Auto-Reply", details: ["Handles low-complexity queries", "Checks balances/status", "Generates statement requests", "Emails clients directly"] },
+  { id: 20, name: "Client Co-Pilot", cat: "SERVICE", role: "Human Assist", details: ["Assists human reps on complex queries", "Fetches margin/trade history", "Drafts detailed responses", "Summarizes email chains"] },
+  { id: 21, name: "Reporting Agent", cat: "SERVICE", role: "Docs & Data", details: ["Generates daily/monthly statements", "Custom ad-hoc NLP reports", "Data quality checks"] },
+
+  // Regulatory
+  { id: 22, name: "Transaction Reporting", cat: "REGULATORY", role: "EMIR/MiFIR/SFTR", details: ["Identifies reportable trades", "Enriches LEI data", "Submits to Trade Repository", "Fixes NACKs/Rejections"] },
+  { id: 23, name: "Comm. Surveillance", cat: "REGULATORY", role: "Market Abuse", details: ["Monitors chat/voice/email", "Flags insider trading/front-running", "Detects inappropriate language"] },
+  { id: 24, name: "Best Execution", cat: "REGULATORY", role: "TCA Monitoring", details: ["Analyzes post-trade data", "Compares vs market benchmarks", "Generates RTS 27/28 reports"] },
+  { id: 25, name: "Audit & Control", cat: "REGULATORY", role: "Governance", details: ["Immutable audit trails", "Monitors agent performance", "Generates 'proof of control'", "Entitlement reviews"] }
+];
+
+// --- Simulation Scenarios ---
+
+const SCENARIOS = [
+  {
+    id: "onboard",
+    label: "New Hedge Fund Onboarding",
+    description: "End-to-end KYC and account provisioning for a new entity.",
+    steps: [
+      { agentId: 1, action: "Ingesting PDF passports and Articles of Inc...", duration: 1500 },
+      { agentId: 1, action: "PEP Screening positive. Validating UBO structure.", duration: 1500 },
+      { agentId: 1, action: "Risk Score Calculated: Medium. KYC Profile Approved.", duration: 1000 },
+      { agentId: 2, action: "Received approved profile. Provisioning FX & Equity accounts.", duration: 1500 },
+      { agentId: 2, action: "Setting up SSIs in central database.", duration: 1200 },
+      { agentId: 2, action: "Welcome Email sent with account details.", duration: 800 },
+      { agentId: 25, action: "Audit trail logged: New Account #88392 created.", duration: 800 },
+    ]
+  },
+  {
+    id: "trade_fail",
+    label: "Settlement Fail Resolution",
+    description: "Detecting a risk of failure and executing a buy-in/pair-off.",
+    steps: [
+      { agentId: 5, action: "Alert: Potential fail detected on USD/JPY 10M trade.", duration: 1200 },
+      { agentId: 5, action: "Root Cause: Insufficient USD cash in Nostro.", duration: 1500 },
+      { agentId: 14, action: "Querying Nostro balance. Confirmed shortfall of $2M.", duration: 1200 },
+      { agentId: 5, action: "Initiating 'Fail Chasing' protocol with counterparty.", duration: 1500 },
+      { agentId: 18, action: "Incoming query from counterparty regarding settlement status.", duration: 1000 },
+      { agentId: 19, action: "Auto-replying: 'We are aware and resolving intra-day'.", duration: 1000 },
+      { agentId: 7, action: "Identifying eligible collateral for Repo to raise cash.", duration: 1500 },
+    ]
+  },
+  {
+    id: "corp_action",
+    label: "Complex Corp Action (Merger)",
+    description: "Processing a mandatory merger with elections.",
+    steps: [
+      { agentId: 9, action: "Alert: Merger announced for Ticker XYZ. Scanning Bloomberg & Custodians.", duration: 1500 },
+      { agentId: 9, action: "Discrepancy found in Ex-Date. Scrubbing PDF source... Golden Record created.", duration: 2000 },
+      { agentId: 10, action: "Calculating entitlements for 45 impacted clients.", duration: 1500 },
+      { agentId: 10, action: "Notifications distributed via Client Portal.", duration: 1000 },
+      { agentId: 11, action: "Ingesting client elections. 80% received.", duration: 1500 },
+      { agentId: 11, action: "Chasing remaining 20% via Agent 10.", duration: 1000 },
+      { agentId: 15, action: "Post-Event Rec: Validating new share positions.", duration: 1500 },
+    ]
+  },
+  {
+    id: "inquiry",
+    label: "Client Margin Dispute",
+    description: "Handling a client complaint about a margin call.",
+    steps: [
+      { agentId: 18, action: "Incoming Email: 'Why is my margin call $5M??'", duration: 1000 },
+      { agentId: 18, action: "Intent: Margin Dispute (High Urgency). Routing...", duration: 1000 },
+      { agentId: 20, action: "Activating Co-Pilot. Fetching Margin Report #9921.", duration: 1200 },
+      { agentId: 20, action: "Fetching recent volatility data for portfolio.", duration: 1200 },
+      { agentId: 6, action: "Re-verifying calculation. Volatility spike in Tech sector confirmed.", duration: 1500 },
+      { agentId: 20, action: "Drafting explanation for Relationship Manager.", duration: 1500 },
+      { agentId: 25, action: "Logging dispute interaction for compliance.", duration: 800 },
+    ]
+  }
+];
+
+// --- Components ---
+
+const AgentCard = ({ agent, status, onClick }) => {
+  const categoryInfo = CATEGORIES[agent.cat];
+  
+  let statusColor = "bg-slate-800 border-slate-700 text-slate-400";
+  let animate = "";
+  
+  if (status === 'active') {
+    statusColor = "bg-slate-800 border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]";
+    animate = "animate-pulse";
+  } else if (status === 'completed') {
+    statusColor = "bg-slate-800 border-green-500 text-white";
+  }
+
+  return (
+    <div 
+      onClick={() => onClick(agent)}
+      className={`relative p-3 rounded-lg border ${statusColor} ${animate} transition-all duration-300 cursor-pointer hover:bg-slate-700 flex flex-col justify-between h-32`}
+    >
+      <div className="flex justify-between items-start">
+        <div className={`text-xs font-bold uppercase tracking-wider ${categoryInfo.color} mb-1 opacity-80`}>
+          Agent {agent.id}
+        </div>
+        {status === 'active' && <Activity size={14} className="text-blue-400 animate-spin" />}
+        {status === 'completed' && <CheckCircle2 size={14} className="text-green-400" />}
+      </div>
+      
+      <div className="font-semibold text-sm leading-tight mb-1">
+        {agent.name}
+      </div>
+      
+      <div className="text-xs text-slate-500 overflow-hidden text-ellipsis line-clamp-2">
+        {agent.role}
+      </div>
+
+      {status === 'active' && (
+        <div className="absolute inset-0 bg-blue-500/5 rounded-lg pointer-events-none" />
+      )}
+    </div>
+  );
+};
+
+const Modal = ({ agent, onClose }) => {
+  if (!agent) return null;
+  const category = CATEGORIES[agent.cat];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className={`p-4 border-b border-slate-800 flex justify-between items-center ${category.bg}`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg bg-slate-900 ${category.color}`}>
+              <category.icon size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Agent {agent.id}: {agent.name}</h3>
+              <p className={`text-xs uppercase font-semibold ${category.color}`}>{category.title}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6">
+          <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+            <Terminal size={14} /> Capabilities
+          </h4>
+          <ul className="space-y-2">
+            {agent.details.map((detail, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-sm text-slate-400">
+                <span className="mt-1.5 w-1 h-1 rounded-full bg-slate-500 flex-shrink-0" />
+                {detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-slate-950 p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
+          Operations AI Grid • Version 2.0.4
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main App ---
+
+export default function AiBankingOps() {
+  const [activeAgentId, setActiveAgentId] = useState(null); // The one currently working
+  const [completedAgents, setCompletedAgents] = useState([]); // List of IDs finished
+  const [logs, setLogs] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState(null); // For modal
+  const [isSimulating, setIsSimulating] = useState(false);
+  const scrollRef = useRef(null);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  const addLog = (text, type = 'info') => {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLogs(prev => [...prev, { time, text, type }]);
+  };
+
+  const runScenario = async (scenario) => {
+    if (isSimulating) return;
+    setIsSimulating(true);
+    setCompletedAgents([]);
+    setActiveAgentId(null);
+    setLogs([]); // Clear logs for clarity
+    
+    addLog(`INITIALIZING SCENARIO: ${scenario.label.toUpperCase()}`, 'system');
+    addLog(scenario.description, 'subtle');
+
+    for (const step of scenario.steps) {
+      setActiveAgentId(step.agentId);
+      const agentName = AGENTS.find(a => a.id === step.agentId).name;
+      
+      addLog(`[Agent ${step.agentId}] ${agentName}: ${step.action}`, 'action');
+      
+      await new Promise(r => setTimeout(r, step.duration));
+      
+      setCompletedAgents(prev => [...prev, step.agentId]);
+    }
+
+    setActiveAgentId(null);
+    setIsSimulating(false);
+    addLog("SCENARIO COMPLETE. ALL SYSTEMS STABLE.", 'success');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-blue-500/30">
+      
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/20">
+              AI
+            </div>
+            <div>
+              <h1 className="font-bold text-lg tracking-tight text-white">FinOps Command Center</h1>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                System Operational
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-4 text-xs font-mono text-slate-500">
+            <div>AGENTS: 25</div>
+            <div>STATUS: {isSimulating ? "BUSY" : "IDLE"}</div>
+            <div>LATENCY: 12ms</div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        {/* Left Column: Grid of Agents */}
+        <div className="lg:col-span-3 space-y-8">
+          
+          {/* Scenario Controls */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
+              <Play size={16} /> Run Simulation
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {SCENARIOS.map(scenario => (
+                <button
+                  key={scenario.id}
+                  onClick={() => runScenario(scenario)}
+                  disabled={isSimulating}
+                  className={`text-left p-3 rounded-lg border transition-all ${isSimulating ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-500 hover:bg-slate-800 active:scale-95'} bg-slate-950 border-slate-800`}
+                >
+                  <div className="font-semibold text-sm text-slate-200 mb-1">{scenario.label}</div>
+                  <div className="text-xs text-slate-500 truncate">{scenario.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agent Grid */}
+          <div className="space-y-8">
+            {Object.entries(CATEGORIES).map(([catKey, catInfo]) => (
+              <div key={catKey}>
+                <div className={`flex items-center gap-2 mb-3 pb-2 border-b border-slate-800 ${catInfo.color}`}>
+                  <catInfo.icon size={18} />
+                  <h3 className="font-bold text-sm uppercase tracking-wide">{catInfo.title}</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {AGENTS.filter(a => a.cat === catKey).map(agent => (
+                    <AgentCard 
+                      key={agent.id} 
+                      agent={agent} 
+                      status={activeAgentId === agent.id ? 'active' : completedAgents.includes(agent.id) ? 'completed' : 'idle'}
+                      onClick={setSelectedAgent}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Column: Logs & Feed */}
+        <div className="lg:col-span-1 lg:sticky lg:top-24 h-fit space-y-4">
+          
+          {/* Terminal / Logs */}
+          <div className="bg-black border border-slate-800 rounded-xl overflow-hidden flex flex-col h-[500px] shadow-2xl">
+            <div className="bg-slate-900 border-b border-slate-800 p-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 px-2">
+                <Terminal size={14} className="text-slate-400" />
+                <span className="text-xs font-mono font-bold text-slate-300">SYSTEM_LOGS</span>
+              </div>
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50" />
+              </div>
+            </div>
+            
+            <div ref={scrollRef} className="flex-1 p-3 overflow-y-auto font-mono text-xs space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+              {logs.length === 0 && (
+                <div className="text-slate-600 italic text-center mt-20">System ready. Awaiting simulation trigger...</div>
+              )}
+              {logs.map((log, i) => (
+                <div key={i} className={`flex gap-2 animate-in slide-in-from-left-2 duration-300`}>
+                  <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                  <span className={`${
+                    log.type === 'system' ? 'text-blue-400 font-bold' :
+                    log.type === 'success' ? 'text-green-400' :
+                    log.type === 'subtle' ? 'text-slate-500' :
+                    'text-slate-300'
+                  }`}>
+                    {log.text}
+                  </span>
+                </div>
+              ))}
+              {isSimulating && (
+                <div className="flex gap-2">
+                  <span className="text-slate-600 shrink-0">...</span>
+                  <span className="text-blue-500 animate-pulse">Processing...</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">Operational Metrics</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Trade Volume</span>
+                <span className="font-mono text-white">45,201</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-purple-500 h-full w-3/4 animate-pulse" />
+              </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">KYC Queue</span>
+                <span className="font-mono text-white">12</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-blue-500 h-full w-1/4" />
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Collateral Efficiency</span>
+                <span className="font-mono text-green-400">99.4%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      {/* Modal */}
+      {selectedAgent && <Modal agent={selectedAgent} onClose={() => setSelectedAgent(null)} />}
+      
+    </div>
+  );
+}
